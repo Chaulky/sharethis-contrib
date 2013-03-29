@@ -219,7 +219,7 @@ function sharethis_configuration_form($form, &$form_state) {
       '#type' => 'textfield',
       '#default_value' => variable_get('sharethis_title_global', FALSE),
       '#element_validate' => array('token_element_validate'),
-      '#token_type' => array('node')
+      '#token_types' => array('node')
     );
 
     $form['advanced']['token_help'] = array(
@@ -353,17 +353,18 @@ function sharethis_node_view($node, $view_mode, $langcode) {
   // Get the full path to insert into the Share Buttons.
   $mPath = $base_url . $path_module;
   $mTitle = $node->title;
-  if(module_exists('token')){
+  if (module_exists('token')) {
     // First check if token is available by content type
     $_tokenTitle = variable_get('sharethis_title_' . $node->type, FALSE);
-    if($_tokenTitle == FALSE){
+    if ($_tokenTitle == FALSE) {
       // Use global
       $_tokenTitle = variable_get('sharethis_title_global', FALSE);
     }
-    if($_tokenTitle != FALSE){
+    if ($_tokenTitle != FALSE) {
       $mTitle = token_replace($_tokenTitle, array('node'=>$node), array('clear'=>TRUE));
     }
   }
+
   // Only display the ShareThis buttons if this node fits all the requirements
   if (strpos($data_options['nodeType'], $node->type) !== FALSE) { // Make sure this is the right type of node.
     if (($data_options['viewMode'] == "1") && ($view_mode == "teaser")) { // If "don't show for teaser" is enabled, and this is a teaser, don't do anything
@@ -404,12 +405,12 @@ function sharethis_node_view($node, $view_mode, $langcode) {
 }
 
 /**
- * hook_form_alter()
+ * Implements hook_form_alter().
  */
 function sharethis_form_node_type_form_alter(&$form, $form_state) {
-  if( module_exists('token')) { // sharethis allowed for this content type?
+  if (module_exists('token')) { // sharethis allowed for this content type?
     $_sharethisOptions = sharethis_get_options_array();
-    $nodeTypes = explode(',',$_sharethisOptions['nodeType']);
+    $node_types = explode(',', $_sharethisOptions['nodeType']);
     $form['sharethis'] = array(
       '#type' => 'fieldset',
       '#title' => t('ShareThis'),
@@ -418,16 +419,16 @@ function sharethis_form_node_type_form_alter(&$form, $form_state) {
       '#group' => 'additional_settings',
       '#tree' => TRUE,
       '#weight' => 10,
-      '#disabled' => !in_array($form['#node_type']->type,$nodeTypes),
-     );
+      '#disabled' => !in_array($form['#node_type']->type, $node_types),
+    );
 
-    $form['sharethis']['sharethis_title_'.$form['#node_type']->type] = array(
+    $form['sharethis']['sharethis_title_' . $form['#node_type']->type] = array(
       '#title' => t('ShareThis title'),
       '#description' => t('You can use tokens to generate the title when sharing. By default the node title will be used.'),
       '#type' => 'textfield',
-      '#default_value' => variable_get('sharethis_title_'.$form['#node_type']->type, FALSE),
+      '#default_value' => variable_get('sharethis_title_' . $form['#node_type']->type, FALSE),
       '#element_validate' => array('token_element_validate'),
-      '#token_type' => array('node')
+      '#token_types' => array('node')
     );
 
     $form['sharethis']['token_help'] = array(
@@ -437,14 +438,17 @@ function sharethis_form_node_type_form_alter(&$form, $form_state) {
       '#collapsible' => TRUE,
       '#collapsed' => FALSE,
     );
-    
+
     $form['#submit'][] = 'sharethis_node_type_form_submit';
   }
 }
 
+/**
+ * Form submission handler for node type edit forms().
+ */
 function sharethis_node_type_form_submit($form, &$form_state) {
   $type = trim($form_state['values']['type']);
-  variable_set('sharethis_title_'.$type, $form_state['values']['sharethis']['sharethis_title_'.$type]);
+  variable_set('sharethis_title_' . $type, $form_state['values']['sharethis']['sharethis_title_' . $type]);
 }
 
 /**
