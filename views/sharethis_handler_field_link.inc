@@ -19,7 +19,7 @@ class sharethis_handler_field_link extends views_handler_field_entity {
   function render_sharethis_link($entity) {
     global $base_url;
     $path = $base_url . url('node/' . $entity->nid);
-    return sharethis_get_button_HTML(sharethis_get_options_array(), $path, $entity->title);
+    return sharethis_get_button_HTML(sharethis_get_options_array(), array('path' => $path, 'title' => $entity->title));
 
     /**
      * @todo

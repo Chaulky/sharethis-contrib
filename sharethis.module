@@ -239,7 +239,7 @@ function sharethis_configuration_form($form, &$form_state) {
       '#token_types' => array('node'),
       '#collapsible' => TRUE,
       '#collapsed' => FALSE,
-      );
+    );
   }
   $form['advanced'] = array(
     '#type' => 'fieldset',
@@ -380,17 +380,20 @@ function sharethis_node_view($node, $view_mode, $langcode) {
 
   global $base_url;
   // Get the full path to insert into the Share Buttons.
-  $mPath = $base_url . $path_module;
-  $mTitle = $node->title;
+  $values['path'] = $base_url . $path_module;
+  $values['title'] = $node->title;
   if (module_exists('token')) {
-    // First check if token is available by content type
-    $_tokenTitle = variable_get('sharethis_title_' . $node->type, FALSE);
-    if ($_tokenTitle == FALSE) {
-      // Use global
-      $_tokenTitle = variable_get('sharethis_title_global', FALSE);
-    }
-    if ($_tokenTitle != FALSE) {
-      $mTitle = token_replace($_tokenTitle, array('node'=>$node), array('clear'=>TRUE));
+    $token_options = array('title', 'summary', 'url', 'image');
+    foreach ($token_options as $option) {
+      // First check if token is available by content type
+      $token = variable_get('sharethis_' . $option . '_' . $node->type, FALSE);
+      if ($token == FALSE) {
+        // Use global
+        $token = variable_get('sharethis_' . $option . '_global', FALSE);
+      }
+      if ($token != FALSE) {
+        $values[$option] = token_replace($token, array('node'=>$node), array('clear'=>TRUE));
+      }
     }
   }
 
@@ -407,14 +410,14 @@ function sharethis_node_view($node, $view_mode, $langcode) {
             '#tag' => 'div', // Wrap it in a div.
             '#type' => 'html_tag',
             '#attributes' => array('class' => 'sharethis-buttons'),
-            '#value' => sharethis_get_button_HTML($data_options, $mPath, $mTitle),
+            '#value' => sharethis_get_button_HTML($data_options, $values),
             '#weight' => intval(variable_get('sharethis_weight', 10)),
           );
         break;
         case 'links':
           $links['sharethis'] = array(
             'html' => TRUE,
-            'title' => sharethis_get_button_HTML($data_options, $mPath, $mTitle),
+            'title' => sharethis_get_button_HTML($data_options, $values),
             'attributes' => array('class' => 'sharethis-buttons'),
           );
           $node->content['links']['sharethis'] = array(
@@ -534,12 +537,11 @@ function sharethis_get_options_array() {
  * sharethisGet_button_HTML is the function that creates the ShareThis code
  * It returns the appropriate html based on your settings.
  */
-function sharethis_get_button_HTML($data_options, $mPath, $mTitle) {
+function sharethis_get_button_HTML($data_options, $values) {
   // Inject the extra services.
   foreach ($data_options['option_extras'] as $service) {
     $data_options['services'] .= ',"' . $service . '"';
   }
-
   // The share buttons are simply spans of the form class='st_SERVICE_BUTTONTYPE' -- "st" stands for ShareThis.
   $type = drupal_substr($data_options['buttons'], 4);
   $type = $type == "_" ? "" : check_plain($type);
@@ -559,10 +561,10 @@ function sharethis_get_button_HTML($data_options, $mPath, $mTitle) {
     $serviceCodeName = drupal_substr($service[1], 0, -1);
 
     // Switch the title on a per-service basis if required.
-    $title = $mTitle;
+    $title = $values['title'];
     switch ($serviceCodeName) {
       case 'twitter':
-        $title = empty($data_options['twitter_suffix']) ? $mTitle : check_plain($mTitle) . ' ' . check_plain($data_options['twitter_suffix']);
+        $title = empty($data_options['twitter_suffix']) ? $title : check_plain($title) . ' ' . check_plain($data_options['twitter_suffix']);
         break;
     }
 
@@ -571,10 +573,16 @@ function sharethis_get_button_HTML($data_options, $mPath, $mTitle) {
 
     // Put together the span attributes.
     $attributes = array(
-      'st_url' => $mPath,
+      'st_url' => $values['path'],
       'st_title' => $title,
       'class' => 'st_' . $display . $type,
     );
+    if (isset($values['summary'])) {
+      $attributes['st_summary'] = $values['summary'];
+    }
+    if (isset($values['image'])) {
+      $attributes['st_image'] = $values['image'];
+    }
     if ($serviceCodeName == 'twitter') {
       if (!empty($data_options['twitter_handle'])) {
         $attributes['st_via'] = $data_options['twitter_handle'];
@@ -585,6 +593,7 @@ function sharethis_get_button_HTML($data_options, $mPath, $mTitle) {
     if (!empty($type)) {
       $attributes['displaytext'] = check_plain($display);
     }
+
     // Render the span tag.
     $st_spans .= theme('html_tag', array(
       'element' => array(
@@ -659,10 +668,9 @@ function sharethis_block_contents() {
   if (variable_get('sharethis_location', 'content') == 'block') {
     // First get all of the options for the sharethis widget from the database:
     $data_options = sharethis_get_options_array();
-    $path = isset($_GET['q']) ? $_GET['q'] : '<front>';
-    $mPath = url($_GET['q'], array('absolute' => TRUE));
-    $mTitle = drupal_get_title();
-    return sharethis_get_button_HTML($data_options, $mPath, $mTitle);
+    $values['path'] = url($_GET['q'], array('absolute' => TRUE));
+    $values['title'] = drupal_get_title();
+    return sharethis_get_button_HTML($data_options, $values);
   }
 }
 
@@ -672,13 +680,12 @@ function sharethis_block_contents() {
 function sharethis_comment_view($comment, $view_mode, $langcode) {
   if (variable_get('sharethis_comments', FALSE)) {
     $data_options = sharethis_get_options_array();
-    $path = isset($_GET['q']) ? $_GET['q'] : '<front>';
-    $mPath = url($_GET['q'], array(
+    $values['path'] = url($_GET['q'], array(
       'absolute' => TRUE,
       'fragment' => 'comment-' . $comment->cid,
     ));
-    $mTitle = drupal_get_title();
-    $html = sharethis_get_button_HTML($data_options, $mPath, $mTitle);
+    $values['title'] = drupal_get_title();
+    $html = sharethis_get_button_HTML($data_options, $values);
     $comment->content['sharethis'] = array(
       '#type' => 'html_tag',
       '#value' => $html,
